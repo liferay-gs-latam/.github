@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      WORKSPACE_REPOSITORY:
+        type: string
+      OWNER_REPOSITORY:
+        type: string
+        
+    secrets:
+      USERNAME:
+        required: true
+      TOKEN:
+        required: true
+
+permissions: write-all  
+
+env:
+  GH_TOKEN: ${{ secrets.TOKEN }}
+
+jobs: 
+    setUpModuleVersion:
+      uses: ./workflows/GENERATE_MODULE_VERSION.yml
+      secrets:
+        GH_TOKEN: ${{ secrets.TOKEN }}
+        
+    build:
+      needs: setUpModuleVersion
+      uses: ./workflows/BUILD_PUBLISH.yml
+      secrets: 
+        USER: ${{ secrets.USERNAME }}
+        TOKEN: ${{ secrets.TOKEN }}
+      with:
+        WORKSPACE_REPOSITORY: "poc-lfrgs-klabindw"
+        WORKSPACE_OWNER_REPOSITORY: "liferay-gs-latam" 
+
+        MODULE_FULL_VERSION: ${{ needs.setUpModuleVersion.outputs.moduleFullVersion }}
+        MODULE_ONLY_VERSION: ${{ needs.setUpModuleVersion.outputs.moduleOnlyVersion }}
+        MODULE_SUFFIX: ${{ needs.setUpModuleVersion.outputs.moduleSuffix }}
+      
+    setUpTag:
+      needs: [ setUpModuleVersion, build ]
+      runs-on: ubuntu-latest
+
+      env:
+        MODULE_FULL_VERSION: ${{ needs.setUpModuleVersion.outputs.moduleFullVersion }}
+
+      steps: 
+      
+        - name: Clone Module ${{ github.event.repository.name }}
+          uses: actions/checkout@v3
+          with:
+            path: liferay-workspace/modules/${{ github.event.repository.name }}
+
+        - name: Create New Pre-Release or Release By Branch           
+          working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+          run: |
+            echo "v: $MODULE_FULL_VERSION"
+            echo "v: ${{ env.MODULE_FULL_VERSION }}"
+            case "${{ github.ref_name }}" in
+
+              "main")
+                git tag $MODULE_FULL_VERSION
+                git push origin --tags
+                git fetch
+                gh release create $MODULE_FULL_VERSION
+                ;;
+                
+              "uat")              
+                git tag $MODULE_FULL_VERSION
+                git push origin --tags
+                git fetch
+                gh release create $MODULE_FULL_VERSION --prerelease
+                ;;
+            esac
+
+      
+
+          

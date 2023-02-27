@@ -1,0 +1,150 @@
+
+name: generate module version
+
+on:
+  workflow_call:
+        
+    secrets:
+      GH_TOKEN:
+        required: true
+        
+    outputs:
+      moduleFullVersion:
+        description: "The first output string"
+        value: ${{ jobs.job1.outputs.moduleFullVersion }}
+      moduleOnlyVersion:
+        description: "The second output string"
+        value: ${{ jobs.job1.outputs.moduleOnlyVersion }}
+      moduleSuffix:
+        description: "The third output string"
+        value: ${{ jobs.job1.outputs.moduleSuffix }}
+
+permissions: write-all  
+
+env:
+  SUFFIX_BRANCH_DEVELOP: "-SNAPSHOT"
+  SUFFIX_BRANCH_UAT: "-RC"
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  job1:
+
+    runs-on: ubuntu-latest
+    
+    outputs:      
+      moduleFullVersion: ${{ steps.moduleFullVersion.outputs.moduleFullVersion }}
+      moduleOnlyVersion: ${{ steps.moduleOnlyVersion.outputs.moduleOnlyVersion }}
+      moduleSuffix: ${{ steps.moduleSuffix.outputs.moduleSuffix }}
+      
+    env:
+      SUFFIX_BRANCH_DEVELOP: "-SNAPSHOT"
+      SUFFIX_BRANCH_UAT: "-RC"
+      GH_TOKEN: ${{ github.token }}
+      
+    steps: 
+    
+      - name: Clone Module ${{ github.event.repository.name }}
+        uses: actions/checkout@v3
+        with:
+          path: liferay-workspace/modules/${{ github.event.repository.name }}
+          
+          
+      - name: With Don`t have Release Tag Then Create First One
+        working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+        run: |          
+          if [ -z "$(gh release list --exclude-pre-releases)" ]
+          then
+            echo "Tag not Found, Create First"
+            git tag 1.0.0
+            git push origin --tags
+            git fetch
+            gh release create 1.0.0
+            sleep 5
+          fi
+          
+      - name: Get GitHub latest release version
+        id: latestReleaseVersion
+        working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+        run: |            
+          LASTEST_VERSION="$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/liferay-gs-latam/${{ github.event.repository.name }}/releases/latest | jq -r '.tag_name')"
+            
+          echo "latestReleaseVersion: $LASTEST_VERSION"
+            
+          echo "latestReleaseVersion=$LASTEST_VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Set Up Module Version
+        env:
+          LASTEST_RELEASE_VERSION: ${{ steps.latestReleaseVersion.outputs.latestReleaseVersion }}
+        id: moduleOnlyVersion
+        working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+        run: |  
+          echo "release version: $LASTEST_RELEASE_VERSION"
+          echo "release version with global ENV: $latestReleaseVersion"
+          
+          IFS=. read -r major minor patch <<< $LASTEST_RELEASE_VERSION          
+          patch=$(expr $patch + 1)
+          
+          echo "version: $major.$minor.$patch"
+          echo "moduleOnlyVersion=$major.$minor.$patch" >> $GITHUB_OUTPUT
+          
+      - name: Set Suffix by Branch
+        id: moduleSuffix
+        env:
+          MODULE_ONLY_VERSION: ${{ steps.moduleOnlyVersion.outputs.moduleOnlyVersion }}
+        working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+        run: |          
+          case "${{ github.ref_name }}" in
+          
+            "develop")
+              echo "moduleSuffix=$SUFFIX_BRANCH_DEVELOP" >> $GITHUB_OUTPUT
+              ;;
+              
+            "uat")
+            
+              lastPreRelease="$(jq -r 'map(select(.prerelease)) | first | .tag_name' <<< $(gh api -H "Accept: application/vnd.github+json" /repos/liferay-gs-latam/${{ github.event.repository.name }}/releases))"
+                
+              echo "lastPreRelease: $lastPreRelease"
+              
+              if [[ -z "$lastPreRelease" || $lastPreRelease != *"$MODULE_ONLY_VERSION"* ]]
+              then
+                echo "create tag rc"
+                echo "moduleSuffix=$SUFFIX_BRANCH_UAT-1" >> $GITHUB_OUTPUT
+              else
+                echo "increment rc value"
+                
+                IFS=- read -r version suffix sufNumber <<< $lastPreRelease
+                sufNumber=$(expr $sufNumber + 1)
+                
+                echo "moduleSuffix=$suffix-$sufNumber" >> $GITHUB_OUTPUT
+              fi    
+              ;;
+              
+            *)
+              echo "moduleSuffix=" >> $GITHUB_OUTPUT
+              ;;
+              
+          esac
+          
+      - name: Set Up Publish Version (FullVersion)
+        id: moduleFullVersion
+        env:
+          MODULE_ONLY_VERSION: ${{ steps.moduleOnlyVersion.outputs.moduleOnlyVersion }}
+          MODULE_SUFFIX: ${{ steps.moduleSuffix.outputs.moduleSuffix }}
+        working-directory: liferay-workspace/modules/${{ github.event.repository.name }}
+        run: |                    
+          echo "moduleFullVersion=$MODULE_ONLY_VERSION$MODULE_SUFFIX" >> $GITHUB_OUTPUT
+          
+      - name: Show output Values
+        env:
+          MODULE_ONLY_VERSION: ${{ steps.moduleOnlyVersion.outputs.moduleOnlyVersion }}
+          MODULE_FULL_VERSION: ${{ steps.moduleFullVersion.outputs.moduleFullVersion }}
+          MODULE_SUFFIX: ${{ steps.moduleSuffix.outputs.moduleSuffix }}
+        run: |
+          echo "moduleFullVersion: $MODULE_FULL_VERSION"
+          echo "MODULE_ONLY_VERSION: $MODULE_ONLY_VERSION"
+          echo "MODULE_SUFFIX: $MODULE_SUFFIX"
+          
+          
+          
