@@ -1,4 +1,4 @@
-name: Klabin CI
+name: Deploy Binaries
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions: write-all
   
 jobs:
 
-  call-CI:
-    uses: liferay-gs-latam/.github/workflows/CI.yml@main
-    secrets:
-      USERNAME: ${{ secrets.USERNAME }}
-      TOKEN: ${{ secrets.TOKEN }}
+    callingMainWorkflow:
+      uses: liferay-gs-latam/share-workflow/.github/workflows/CI.yml@main
+      secrets:
+        USERNAME: ${{ secrets.USERNAME }}
+        TOKEN: ${{ secrets.TOKEN }}
