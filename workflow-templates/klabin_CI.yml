@@ -1,0 +1,16 @@
+name: Klabin CI
+
+on:
+  push:
+    branches: [ "main", "develop", "uat" ]
+  workflow_dispatch:
+
+permissions: write-all   
+  
+jobs:
+
+  call-CI:
+    uses: liferay-gs-latam/.github/workflows/CI.yml@main
+    secrets:
+      USERNAME: ${{ secrets.USERNAME }}
+      TOKEN: ${{ secrets.TOKEN }}
