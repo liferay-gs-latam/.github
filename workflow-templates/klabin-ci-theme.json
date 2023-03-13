@@ -1,0 +1,7 @@
+{
+    "name": "Klabin CI Theme",
+    "description": "Liferay modules build publish and version generate",
+    "categories": [
+        "Continuous integration", "liferay", "java"
+    ]
+}
