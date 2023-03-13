@@ -1,0 +1,17 @@
+name: Module Build and Publish 
+run-name: "Build and Publish | Branch:${{ github.ref_name }}"
+permissions: write-all   
+concurrency:
+  group: "${{ github.event.repository.name }}-${{ github.ref_name }}"
+  cancel-in-progress: false
+on:
+  push:
+    branches: [ "master", "dev", "uat" ]
+  workflow_dispatch:
+  
+jobs:
+  Main:
+    uses: liferay-gs-latam/share-workflow/.github/workflows/ci-theme.yml@main
+    secrets:
+      USERNAME: ${{ secrets.USERNAME }}
+      TOKEN: ${{ secrets.TOKEN }}
