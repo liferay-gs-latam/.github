@@ -1,5 +1,5 @@
 {
-    "name": "Klabin CI",
+    "name": "Klabin CI Module",
     "description": "Liferay modules build publish and version generate",
     "categories": [
         "Continuous integration", "liferay", "java"
