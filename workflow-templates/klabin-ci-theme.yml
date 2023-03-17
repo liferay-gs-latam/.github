@@ -11,7 +11,7 @@ on:
   
 jobs:
   Main:
-    uses: liferay-gs-latam/share-workflow/.github/workflows/ci-theme.yml@main
+    uses: liferay-gs-latam/DXP-Cloud/.github/workflows/ci-theme.yml@main
     secrets:
       USERNAME: ${{ secrets.USERNAME }}
       TOKEN: ${{ secrets.TOKEN }}
